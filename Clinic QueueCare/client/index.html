@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Clinic QueueCare | Smart Clinic Queue Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+</head>
+<body>
+
+    <!-- ======================================================================
+         PATIENT HEADER (MOBILE-FIRST)
+         Left: ☰ Menu Hamburger, QueueCare Logo
+         Right: Doctor Login, Reception Login (moves to drawer on small screens)
+         ====================================================================== -->
+    <header class="patient-header">
+        <div class="header-container">
+            <div class="header-left">
+                <button id="hamburgerBtn" class="hamburger-btn" aria-label="Open Navigation Menu" aria-expanded="false" aria-controls="drawerOverlay">
+                    &#9776;
+                </button>
+                <a href="#home" class="brand-logo-area" onclick="switchView('home')" aria-label="QueueCare Home">
+                    <div class="brand-icon">Q</div>
+                    <div class="brand-name">Queue<span>Care</span></div>
+                </a>
+            </div>
+            <div class="header-right">
+                <a href="doctor-login.html" class="btn-header btn-doctor-login">
+                    <span>Doctor Login</span>
+                </a>
+                <a href="reception-login.html" class="btn-header btn-reception-login">
+                    <span>Reception Login</span>
+                </a>
+                <!-- Mobile Compact Portal Button -->
+                <button type="button" class="btn-header btn-mobile-portal btn-secondary" onclick="openDrawerWithFocus('staff')" aria-label="Staff Portals">
+                    <span>Staff</span> &#9662;
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ======================================================================
+         MOBILE HAMBURGER DRAWER MENU
+         Only Patient Navigation: Home, Book Token, My Bookings, Queue Progress
+         + Staff Portal Access on Mobile
+         ====================================================================== -->
+    <div id="drawerOverlay" class="drawer-overlay" role="dialog" aria-modal="true" aria-label="Mobile Navigation">
+        <div class="drawer-content">
+            <div class="drawer-header">
+                <div class="brand-logo-area">
+                    <div class="brand-icon">Q</div>
+                    <div class="brand-name">Queue<span>Care</span></div>
+                </div>
+                <button id="drawerCloseBtn" class="drawer-close" aria-label="Close Navigation Menu">&times;</button>
+            </div>
+
+            <nav class="drawer-nav">
+                <a href="#home" class="drawer-link active" data-view="home">
+                    <span class="drawer-link-icon">&#127968;</span>
+                    <span>Clinic Home</span>
+                </a>
+                <a href="#book" class="drawer-link" data-view="book">
+                    <span class="drawer-link-icon">&#128197;</span>
+                    <span>Book Token</span>
+                </a>
+                <a href="#my-bookings" class="drawer-link" data-view="my-bookings">
+                    <span class="drawer-link-icon">&#128203;</span>
+                    <span>My Bookings</span>
+                </a>
+                <a href="#queue-progress" class="drawer-link" data-view="queue-progress">
+                    <span class="drawer-link-icon">&#9201;</span>
+                    <span>Queue Progress</span>
+                </a>
+            </nav>
+
+            <!-- Staff Portal Links for Mobile Viewports -->
+            <div class="drawer-staff-section" id="drawerStaffSection">
+                <div class="drawer-staff-title">Staff Portals</div>
+                <div class="drawer-staff-links">
+                    <a href="doctor-login.html" class="drawer-staff-item">
+                        <span style="font-size: 1.1rem; color: var(--primary);">&#9877;</span>
+                        <span>Doctor Portal</span>
+                    </a>
+                    <a href="reception-login.html" class="drawer-staff-item">
+                        <span style="font-size: 1.1rem; color: var(--accent-emerald);">&#128188;</span>
+                        <span>Reception Desk</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="drawer-footer">
+                <div id="drawerTimings" style="font-weight:600; color:var(--text-main);">Hours: 09:00 AM - 05:00 PM</div>
+                <div style="margin-top:0.25rem;">Live Real-Time Queue Management</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         MAIN CONTENT AREA
+         ====================================================================== -->
+    <main class="main-content">
+
+        <!-- ==================================================================
+             VIEW 1: PATIENT HOME
+             Overview ONLY: Clinic Name, Current Serving Token, Tokens Issued,
+             Booking Status, Consultation Status
+             ================================================================== -->
+        <section id="view-home" class="view-section active">
+            <div class="clinic-hero">
+                <div class="hero-info">
+                    <h1 id="homeClinicName">QueueCare Clinic</h1>
+                    <div class="hero-tagline">Smart clinic queue tracking &amp; instant patient tokens</div>
+                    <div class="hero-doctor-badge">
+                        <span id="homeDoctorName">Dr. Sarah Jenkins &bull; General Physician</span>
+                    </div>
+                    <div id="homeTimings" class="hero-timings">
+                        <span>&#128337; Today's Consultation: 09:00 AM - 05:00 PM</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 Overview Metric Cards -->
+            <div class="home-stats-grid">
+                <div class="stat-card">
+                    <span class="stat-card-label">Currently Serving</span>
+                    <div id="homeCurrentToken" class="stat-card-value highlight">—</div>
+                </div>
+
+                <div class="stat-card">
+                    <span class="stat-card-label">Tokens Issued Today</span>
+                    <div id="homeTotalTokens" class="stat-card-value">0</div>
+                </div>
+
+                <div class="stat-card">
+                    <span class="stat-card-label">Booking Status</span>
+                    <div style="margin-top: 0.5rem;">
+                        <span id="homeBookingStatus" class="stat-badge badge-open">
+                            <span class="status-indicator-dot"></span> OPEN
+                        </span>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <span class="stat-card-label">Consultation Status</span>
+                    <div style="margin-top: 0.5rem;">
+                        <span id="homeConsultationStatus" class="stat-badge badge-in-progress">
+                            <span class="status-indicator-dot pulse"></span> IN PROGRESS
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================================================================
+             VIEW 2: BOOK TOKEN
+             Patient Name & Mobile Number + Rich Success Card Experience
+             ================================================================== -->
+        <section id="view-book" class="view-section">
+            <div class="booking-view-container">
+                <div class="card" id="bookingCard">
+                    <div class="card-header">
+                        <h2>Book Clinic Token</h2>
+                        <p>Receive your sequential token instantly. No appointment scheduling or time slots needed.</p>
+                    </div>
+
+                    <div id="bookingStatusAlert" class="alert-box alert-success">
+                        <strong>Booking Status: OPEN</strong> &bull; Tokens are currently being issued.
+                    </div>
+
+                    <!-- Booking Input Form -->
+                    <form id="tokenBookingForm" novalidate>
+                        <div class="form-group">
+                            <label for="patientName" class="form-label">Patient Name</label>
+                            <input 
+                                type="text" 
+                                id="patientName" 
+                                class="form-control" 
+                                placeholder="Enter full patient name" 
+                                maxlength="50" 
+                                required
+                                autocomplete="name"
+                            >
+                            <div class="form-hint">3 to 50 characters (letters and spaces only).</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="patientMobile" class="form-label">Mobile Number</label>
+                            <input 
+                                type="tel" 
+                                id="patientMobile" 
+                                class="form-control" 
+                                placeholder="10-digit mobile number" 
+                                maxlength="10" 
+                                required
+                                autocomplete="tel"
+                            >
+                            <div class="form-hint">10 numeric digits for token identification.</div>
+                        </div>
+
+                        <button type="submit" id="btnSubmitBooking" class="btn-primary">
+                            <span>Get Clinic Token</span> &rarr;
+                        </button>
+                    </form>
+
+                    <!-- Booking Success Experience Card (Shown after successful booking) -->
+                    <div id="bookingSuccessCard" class="booking-success-card" style="display: none;">
+                        <div class="booking-success-icon">&#10003;</div>
+                        <h3 class="booking-success-title">Token Booked Successfully!</h3>
+                        <div class="booking-success-patient-name" id="successPatientName">Rahul Kumar</div>
+
+                        <div class="booking-success-token-hero">
+                            <small>Your Token</small>
+                            <div class="token-num" id="successTokenNum">36</div>
+                        </div>
+
+                        <p class="booking-success-notes">Please wait until your token is called in the consultation room.</p>
+
+                        <div class="booking-success-actions">
+                            <button type="button" class="btn-primary" id="btnSuccessViewReceipt">
+                                &#128196; View Receipt
+                            </button>
+                            <button type="button" class="btn-secondary" id="btnSuccessTrackQueue">
+                                &#9201; Track Queue
+                            </button>
+                            <button type="button" class="btn-secondary" id="btnSuccessBookAnother" style="background:#f1f5f9;">
+                                Book Another
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 3: MY BOOKINGS
+             Renders ALL browser-associated bookings (never just bookings[0])
+             ================================================================== -->
+        <section id="view-my-bookings" class="view-section">
+            <div class="my-bookings-container">
+                <div class="section-title-bar">
+                    <div>
+                        <h2>My Clinic Tokens</h2>
+                        <div style="font-size:0.85rem; color:var(--text-muted); margin-top:0.15rem;">All tokens booked from this browser today</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                        <button type="button" id="btnClearExpiredTokens" class="btn-secondary" style="display:none; font-size:0.85rem;" onclick="clearExpiredTokens()">
+                            &#128465; Clear Expired Tokens
+                        </button>
+                        <a href="#book" class="btn-secondary" onclick="switchView('book')">
+                            + New Booking
+                        </a>
+                    </div>
+                </div>
+                <div id="myBookingsList">
+                    <!-- Populated dynamically by patient.js -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================================
+             VIEW 4: QUEUE PROGRESS
+             The ONLY patient page for detailed live queue tracking
+             ================================================================== -->
+        <section id="view-queue-progress" class="view-section">
+            <div class="queue-progress-container">
+                
+                <div class="token-selector-bar">
+                    <div class="token-selector-left">
+                        <label for="progressTokenSelect" style="font-weight: 700; font-size: 0.9rem; color: var(--text-main);">
+                            Select Patient:
+                        </label>
+                        <select id="progressTokenSelect" class="form-control" style="width: 100%; max-width: 300px;">
+                            <!-- Populated dynamically with browser tokens -->
+                        </select>
+                    </div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); display:flex; align-items:center; gap:0.4rem;">
+                        <span class="status-indicator-dot pulse" style="color: var(--primary);"></span>
+                        <span>Live real-time queue sync</span>
+                    </div>
+                </div>
+
+                <div id="progStatusBanner" class="alert-box alert-warning">
+                    <strong>Queue in Progress</strong> &bull; Tracking live consultation progress.
+                </div>
+
+                <!-- 4 Live Progress Metrics -->
+                <div class="progress-hero-grid">
+                    <div class="progress-metric-card">
+                        <div class="progress-metric-label">Your Token</div>
+                        <div id="progYourToken" class="progress-metric-value highlight" style="color: var(--primary);">—</div>
+                    </div>
+                    <div class="progress-metric-card">
+                        <div class="progress-metric-label">Currently Serving</div>
+                        <div id="progCurrentlyServing" class="progress-metric-value">—</div>
+                    </div>
+                    <div class="progress-metric-card">
+                        <div class="progress-metric-label">Patients Ahead</div>
+                        <div id="progPatientsAhead" class="progress-metric-value" style="color: var(--status-waiting);">—</div>
+                    </div>
+                    <div class="progress-metric-card">
+                        <div class="progress-metric-label">Queue Position</div>
+                        <div id="progQueuePosition" class="progress-metric-value">—</div>
+                    </div>
+                </div>
+
+                <!-- Live Queue Flow Timeline -->
+                <div class="timeline-card">
+                    <h3>Live Queue Flow</h3>
+                    <div id="progLiveQueueFlow" class="live-queue-tokens-flow">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Recently Completed Tokens -->
+                <div class="timeline-card">
+                    <h3>Recently Completed Today</h3>
+                    <div id="progRecentlyCompletedList">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ======================================================================
+         PATIENT FOOTER
+         ====================================================================== -->
+    <footer class="patient-footer">
+        <div class="footer-content">
+            <div class="footer-brand">QueueCare &bull; Smart Clinic Queue Management</div>
+            <div class="footer-desc">Professional patient token progression and clinic consultation desk.</div>
+        </div>
+    </footer>
+
+    <!-- ======================================================================
+         DIGITAL RECEIPT MODAL (320px SAFE & PRINT READY)
+         ====================================================================== -->
+    <div id="receiptModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="receiptClinicName">
+        <div class="modal-window">
+            <div class="receipt-slip" id="printableReceipt">
+                <div class="receipt-header">
+                    <div class="receipt-logo" id="receiptClinicName">QUEUECARE CLINIC</div>
+                    <div class="receipt-sub">Smart Clinic Queue System</div>
+                    <div class="receipt-sub" id="receiptDoctor" style="margin-top:4px; font-weight:600;">Dr. Sarah Jenkins</div>
+                </div>
+
+                <div class="receipt-token-hero">
+                    <small>PATIENT TOKEN</small>
+                    <h1 id="receiptTokenNum">--</h1>
+                </div>
+
+                <table class="receipt-details-table">
+                    <tr>
+                        <td>Patient:</td>
+                        <td id="receiptPatientName">--</td>
+                    </tr>
+                    <tr>
+                        <td>Mobile:</td>
+                        <td id="receiptMobile">--</td>
+                    </tr>
+                    <tr>
+                        <td>Date:</td>
+                        <td id="receiptDate">--</td>
+                    </tr>
+                    <tr>
+                        <td>Time:</td>
+                        <td id="receiptTime">--</td>
+                    </tr>
+                    <tr>
+                        <td>Source:</td>
+                        <td id="receiptSource">Patient</td>
+                    </tr>
+                    <tr>
+                        <td>Status:</td>
+                        <td id="receiptStatus">Waiting</td>
+                    </tr>
+                </table>
+
+                <div class="receipt-footer-notes">
+                    <p>Please wait for your token to be called on the display.</p>
+                    <p style="margin-top: 4px;">Thank you for your patience.</p>
+                </div>
+            </div>
+
+            <div class="modal-actions-bar">
+                <button type="button" class="btn-secondary" onclick="printReceipt()">
+                    &#128424; Print Receipt
+                </button>
+                <button type="button" class="btn-secondary" onclick="downloadReceiptPdf()">
+                    &#128190; Download PDF
+                </button>
+                <button type="button" class="btn-secondary" style="background:#f1f5f9;" onclick="closeReceiptModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/app.js"></script>
+    <script src="js/patient.js"></script>
+</body>
+</html>

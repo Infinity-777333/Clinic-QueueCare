@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Reception Desk | Clinic QueueCare</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        .reception-desk-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .reception-title h1 {
+            font-size: clamp(1.3rem, 3.5vw, 1.85rem);
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: -0.025em;
+        }
+        .reception-title p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            margin-top: 0.2rem;
+        }
+        .rec-search-wrapper {
+            width: 100%;
+        }
+        @media (min-width: 640px) {
+            .rec-search-wrapper {
+                width: auto;
+                min-width: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Reception Header -->
+    <header class="reception-header">
+        <div class="header-container">
+            <div style="display:flex; align-items:center; gap:0.6rem; min-width: 0;">
+                <a href="reception.html" class="staff-brand" aria-label="Reception Desk Home">
+                    <div class="brand-icon" style="background:#059669;">Q</div>
+                    <span class="brand-name" style="color:#ffffff;">Queue<span style="color:#6ee7b7;">Care</span></span>
+                </a>
+                <span class="staff-badge-role" style="background-color: rgba(255,255,255,0.2);">Reception</span>
+            </div>
+
+            <div class="staff-user-menu">
+                <div class="staff-profile-chip">
+                    <div class="name">Front Desk Coordinator</div>
+                    <div class="role" id="recClinicName">QueueCare Clinic</div>
+                </div>
+                <button type="button" id="btnReceptionLogout" class="btn-logout">Logout</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+
+        <!-- Desk Overview Header -->
+        <div class="reception-desk-header">
+            <div class="reception-title">
+                <h1>Reception Intake Desk</h1>
+                <p>Register walk-in and telephone patients, issue tokens, and manage arrival roster</p>
+            </div>
+        </div>
+
+        <!-- Overview Stats Grid (Mobile 2x2, Tablet/Desktop 4x1) -->
+        <div class="home-stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+                <span class="stat-card-label">Total Issued Today</span>
+                <div id="recTotalTokens" class="stat-card-value">0</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Currently Serving</span>
+                <div id="recCurrentServing" class="stat-card-value highlight">—</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Waiting in Queue</span>
+                <div id="recWaitingCount" class="stat-card-value" style="color:var(--status-waiting);">0</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-card-label">Booking Status</span>
+                <div style="margin-top: 0.5rem;">
+                    <span id="recBookingStatusBadge" class="stat-badge badge-open">
+                        <span class="status-indicator-dot"></span> OPEN
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking Intake Cards (Walk-in & Phone) -->
+        <div class="reception-actions-grid">
+            
+            <!-- Walk-in Booking Card -->
+            <div class="card" style="border-top: 4px solid var(--primary);">
+                <div class="card-header">
+                    <h2>Walk-in Token Booking</h2>
+                    <p>Issue next sequential token for patients present in-person at the front desk counter.</p>
+                </div>
+                <form id="walkinBookingForm" novalidate>
+                    <div class="form-group">
+                        <label for="walkinPatientName" class="form-label">Patient Name</label>
+                        <input type="text" id="walkinPatientName" name="patient_name" class="form-control" placeholder="Full patient name" required autocomplete="name">
+                        <div class="form-hint">3 to 50 characters (letters and spaces only).</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="walkinPatientMobile" class="form-label">Mobile Number</label>
+                        <input type="tel" id="walkinPatientMobile" name="patient_mobile" class="form-control" placeholder="10-digit mobile number" maxlength="10" required autocomplete="tel">
+                        <div class="form-hint">10 digits for token identification and reprint.</div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="background-color: var(--primary);">
+                        <span>Issue Walk-in Token</span> &rarr;
+                    </button>
+                </form>
+            </div>
+
+            <!-- Phone Booking Card -->
+            <div class="card" style="border-top: 4px solid var(--secondary);">
+                <div class="card-header">
+                    <h2>Phone Call Booking</h2>
+                    <p>Issue next sequential token for patients calling in by telephone.</p>
+                </div>
+                <form id="phoneBookingForm" novalidate>
+                    <div class="form-group">
+                        <label for="phonePatientName" class="form-label">Patient Name</label>
+                        <input type="text" id="phonePatientName" name="patient_name" class="form-control" placeholder="Caller patient name" required autocomplete="name">
+                        <div class="form-hint">3 to 50 characters (letters and spaces only).</div>
+                    </div>
+                    <div class="form-group">
+                        <label for="phonePatientMobile" class="form-label">Mobile Number</label>
+                        <input type="tel" id="phonePatientMobile" name="patient_mobile" class="form-control" placeholder="10-digit mobile number" maxlength="10" required autocomplete="tel">
+                        <div class="form-hint">10 digits for token identification and reprint.</div>
+                    </div>
+                    <button type="submit" class="btn-primary" style="background-color: var(--secondary);">
+                        <span>Issue Phone Token</span> &rarr;
+                    </button>
+                </form>
+            </div>
+
+        </div>
+
+        <!-- Today's Bookings Table with Real-Time Search (Mobile Cards) -->
+        <div class="data-table-container">
+            <div class="data-table-header">
+                <div>
+                    <h3>Today's Clinic Bookings</h3>
+                    <div style="font-size:0.85rem; color:var(--text-muted);">Manage patient arrivals and reprint counter receipts</div>
+                </div>
+                <div class="rec-search-wrapper">
+                    <input 
+                        type="text" 
+                        id="recSearchInput" 
+                        class="form-control" 
+                        placeholder="Search Name, Mobile, or Token..." 
+                        style="min-height: 44px;"
+                    >
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Token</th>
+                            <th>Patient Name</th>
+                            <th>Mobile</th>
+                            <th>Source</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="receptionTableBody">
+                        <!-- Populated dynamically with data-label for mobile cards -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Digital Receipt Modal for Counter Reprinting -->
+    <div id="receiptModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="receiptClinicName">
+        <div class="modal-window">
+            <div class="receipt-slip" id="printableReceipt">
+                <div class="receipt-header">
+                    <div class="receipt-logo" id="receiptClinicName">QUEUECARE CLINIC</div>
+                    <div class="receipt-sub">Smart Clinic Queue System</div>
+                    <div class="receipt-sub" id="receiptDoctor" style="margin-top:4px; font-weight:600;">Dr. Sarah Jenkins</div>
+                </div>
+
+                <div class="receipt-token-hero">
+                    <small>PATIENT TOKEN</small>
+                    <h1 id="receiptTokenNum">--</h1>
+                </div>
+
+                <table class="receipt-details-table">
+                    <tr>
+                        <td>Patient:</td>
+                        <td id="receiptPatientName">--</td>
+                    </tr>
+                    <tr>
+                        <td>Mobile:</td>
+                        <td id="receiptMobile">--</td>
+                    </tr>
+                    <tr>
+                        <td>Date:</td>
+                        <td id="receiptDate">--</td>
+                    </tr>
+                    <tr>
+                        <td>Time:</td>
+                        <td id="receiptTime">--</td>
+                    </tr>
+                    <tr>
+                        <td>Source:</td>
+                        <td id="receiptSource">Walk-in</td>
+                    </tr>
+                    <tr>
+                        <td>Status:</td>
+                        <td id="receiptStatus">Waiting</td>
+                    </tr>
+                </table>
+
+                <div class="receipt-footer-notes">
+                    <p>Official Clinic Counter Receipt</p>
+                    <p style="margin-top: 4px;">Please present this slip at the consultation desk.</p>
+                </div>
+            </div>
+
+            <div class="modal-actions-bar">
+                <button type="button" class="btn-secondary" onclick="printReceipt()">
+                    &#128424; Print Receipt
+                </button>
+                <button type="button" class="btn-secondary" onclick="downloadReceiptPdf()">
+                    &#128190; Download PDF
+                </button>
+                <button type="button" class="btn-secondary" style="background:#f1f5f9;" onclick="closeReceiptModal()">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/reception.js"></script>
+</body>
+</html>
